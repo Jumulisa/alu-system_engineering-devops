@@ -1,16 +1,45 @@
-#!/usr/bin/env bash
-# bash script that installs HAProxy & makes configurations to meet the following requirements:
+#!/bin/bash
 
-apt-get -y install software-properties-common
-add-apt-repository ppa:vbernat/haproxy-1.8
-apt-get update
-apt-get -y install haproxy
-echo "ENABLED=1" >> /etc/default/haproxy
-printf %s "listen 5432-web
-    bind *:80
+# Update system
+sudo apt-get update
+sudo apt-get upgrade -y
+
+# Install HAproxy
+sudo apt-get install -y haproxy
+
+# Configure HAproxy
+sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.bak
+sudo tee /etc/haproxy/haproxy.cfg <<EOL
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    maxconn 4096
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log global
     mode http
+    option httplog
+    option dontlognull
+    retries 3
+    timeout connect 5000
+    timeout client 50000
+    timeout server 50000
+
+frontend http-in
+    bind *:80
+    default_backend servers
+
+backend servers
     balance roundrobin
-    server 5432-web-01 54.145.20.12:80 check
-    server 5432-web-02 18.205.245.49:80 check
-" >> /etc/haproxy/haproxy.cfg
+    server web-01 [STUDENT_ID]-web-01.example.com:80 check
+    server web-02 [STUDENT_ID]-web-02.example.com:80 check
+EOL
+
+# Restart HAproxy
 sudo service haproxy restart
+
+# Enable HAproxy to start on boot
+sudo update-rc.d haproxy enable
